@@ -428,7 +428,7 @@
           {/* bottom accent */}
           <div style={{
             position:"absolute", bottom:0, left:0, right:0, height:4,
-            background:"linear-gradient(90deg,#7C3AED,#E91E8C,#166534)"
+            background:"linear-gradient(90deg,#7C3AED,#0A2A5E,#166534)"
           }}/>
         </div>
       );
@@ -472,16 +472,16 @@
             </button>
             {/* STATS card */}
             <button onClick={()=>setView("stats")} style={{
-              flex:"1 1 220px",minHeight:200,border:"1.5px solid #E91E8C",borderRadius:20,
-              background:"#FDE8F4",color:"#B0006A",cursor:"pointer",
+              flex:"1 1 220px",minHeight:200,border:"1.5px solid var(--color-border-secondary)",borderRadius:20,
+              background:"var(--color-background-primary)",color:"var(--color-text-primary)",cursor:"pointer",
               display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,
-              padding:"2rem",boxShadow:"0 4px 16px rgba(233,30,140,0.1)",transition:"transform 0.15s,box-shadow 0.15s"
+              padding:"2rem",boxShadow:"0 4px 16px rgba(0,0,0,0.06)",transition:"transform 0.15s,box-shadow 0.15s"
             }}
-            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow="0 12px 36px rgba(233,30,140,0.2)";}}
-            onMouseLeave={e=>{e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="0 4px 16px rgba(233,30,140,0.1)";}}>
+            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow="0 12px 36px rgba(0,0,0,0.12)";}}
+            onMouseLeave={e=>{e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,0.06)";}}>
               <div>
                 <p style={{fontSize:20,fontWeight:800,margin:"0 0 6px",letterSpacing:"-0.02em"}}>Stats</p>
-                <p style={{fontSize:13,color:"#C2185B",margin:0,opacity:0.8}}>Progress &amp; performance</p>
+                <p style={{fontSize:13,color:"var(--color-text-tertiary)",margin:0}}>Progress &amp; performance</p>
               </div>
             </button>
           </div>
@@ -720,9 +720,9 @@
 
     // ── STATS VIEW ───────────────────────────────────────────────────────────
     if (view==="stats") {
-      const PINK = "#E91E8C";
-      const PINK_BG = "#FDE8F4";
-      const PINK_BORDER = "#E91E8C";
+      const PINK = "var(--color-text-primary)";
+      const PINK_BG = "var(--color-background-secondary)";
+      const PINK_BORDER = "var(--color-border-secondary)";
 
       // build last 14 days
       const days = Array.from({length:14}, (_,i)=>{
@@ -810,10 +810,10 @@
                       {/* background bar */}
                       <div style={{position:"absolute",bottom:0,left:0,right:0,height:totalH||2,borderRadius:3,background:PINK_BG,border:`0.5px solid ${PINK_BORDER}`,opacity:0.5}} />
                       {/* correct portion */}
-                      <div style={{position:"absolute",bottom:0,left:0,right:0,height:correctH,borderRadius:3,background:PINK}} />
+                      <div style={{position:"absolute",bottom:0,left:0,right:0,height:correctH,borderRadius:3,background:"#0A2A5E"}} />
                     </div>
                     <span style={{fontSize:9,color:"var(--color-text-tertiary)",fontWeight:600}}>{d.label}</span>
-                    {d.total>0 && <span style={{fontSize:9,color:PINK,fontWeight:700}}>{d.total}</span>}
+                    {d.total>0 && <span style={{fontSize:9,color:"var(--color-text-tertiary)",fontWeight:700}}>{d.total}</span>}
                   </div>
                 );
               })}
@@ -909,7 +909,7 @@
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.5rem"}}>
             <button onClick={()=>setView("home")} style={btnBase}>← Back</button>
             <h2 style={{fontSize:18,fontWeight:700,color:"var(--color-text-primary)"}}>All cards</h2>
-            <button onClick={()=>setView("stats")} style={{...btnBase,background:"#FDE8F4",color:"#E91E8C",border:"0.5px solid #E91E8C",fontWeight:700}}>Stats</button>
+            <button onClick={()=>setView("stats")} style={{...btnBase,fontWeight:700}}>Stats</button>
           </div>
 
           {/* Section filter */}
