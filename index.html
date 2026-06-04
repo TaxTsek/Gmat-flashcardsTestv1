@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GMAT Flashcards</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-background-primary: #ffffff;
+      --color-background-secondary: #f5f5f5;
+      --color-text-primary: #1a1a1a;
+      --color-text-secondary: #555;
+      --color-text-tertiary: #888;
+      --color-border-secondary: #ddd;
+      --color-border-tertiary: #e8e8e8;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-background-primary: #1a1a1a;
+        --color-background-secondary: #242424;
+        --color-text-primary: #f0f0f0;
+        --color-text-secondary: #aaa;
+        --color-text-tertiary: #666;
+        --color-border-secondary: #333;
+        --color-border-tertiary: #2a2a2a;
+      }
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--color-background-secondary); color: var(--color-text-primary); min-height: 100dvh; }
+    @keyframes flipIn { from { opacity:0; transform:rotateY(90deg); } to { opacity:1; transform:rotateY(0); } }
+
+    .home-layout { display:flex; min-height:100dvh; }
+    .sidebar {
+      width: 240px; flex-shrink:0;
+      background: var(--color-background-primary);
+      border-right: 1px solid var(--color-border-secondary);
+      padding: 1.5rem 1rem;
+      position: sticky; top:0; height:100dvh; overflow-y:auto;
+      display:flex; flex-direction:column; gap:0;
+    }
+    .sidebar-section { margin-bottom:1.25rem; }
+    .sidebar-label { font-size:11px; font-weight:600; color:var(--color-text-tertiary); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px; }
+    .sidebar-divider { border:none; border-top:1px solid var(--color-border-tertiary); margin:1rem 0; }
+    .main-panel { flex:1; padding:1.5rem; min-width:0; overflow-y:auto; }
+    @media (max-width: 800px) {
+      .home-layout { flex-direction:column; }
+      .sidebar { width:100%; height:auto; position:static; border-right:none; border-bottom:1px solid var(--color-border-secondary); }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { useState, useRef, useEffect } = React;
+
+  const SECTION_COLORS = {
+    Quant:           { bg:"#E6EEF8", text:"#0A2A5E", border:"#0A2A5E", accent:"#0A2A5E" },
+    Verbal:          { bg:"#F3E8FF", text:"#5B21B6", border:"#7C3AED", accent:"#7C3AED" },
+    "Data Insights": { bg:"#E6F4EC", text:"#14532D", border:"#166534", accent:"#166534" },
+    Unknown:         { bg:"#F1EFE8", text:"#444441", border:"#5F5E5A", accent:"#5F5E5A" },
+  };
+  const SECTIONS    = ["Quant","Verbal","Data Insights"];
+  const CONF_STYLE  = {
+    1: { bg:"#FCEBEB", color:"#791F1F", border:"#A32D2D", label:"Hard" },
+    2: { bg:"#FFF8E6", color:"#7A5500", border:"#F0C040", label:"OK"   },
+    3: { bg:"#EAF3DE", color:"#27500A", border:"#3B6D11", label:"Easy" },
+  };
+
+  function Badge({ section }) {
+    const c = SECTION_COLORS[section] || SECTION_COLORS.Unknown;
+    return <span style={{ display:"inline-flex", alignItems:"center", background:c.bg, color:c.text, border:`0.5px solid ${c.border}`, borderRadius:20, padding:"3px 10px", fontSize:12, fontWeight:500 }}>{section}</span>;
+  }
+
+  const btnBase    = { padding:"9px 20px", borderRadius:8, border:"0.5px solid var(--color-border-secondary)", background:"var(--color-background-secondary)", color:"var(--color-text-primary)", fontSize:14, cursor:"pointer", fontWeight:500 };
+  const btnBlue    = { ...btnBase, background:"#E6F1FB", color:"#0C447C",  border:"0.5px solid #185FA5" };
+  const btnPurple  = { ...btnBase, background:"#EEEDFE", color:"#3C3489",  border:"0.5px solid #534AB7" };
+  const btnTeal    = { ...btnBase, background:"#E1F5EE", color:"#085041",  border:"0.5px solid #0F6E56" };
+  const btnSuccess = { ...btnBase, background:"#16a34a", color:"#ffffff",  border:"none", fontWeight:700 };
+  const btnDanger  = { ...btnBase, background:"#dc2626", color:"#ffffff",  border:"none", fontWeight:700 };
+  const btnOK      = { ...btnBase, background:"#eab308", color:"#ffffff",  border:"none", fontWeight:700 };
+  const btnDark    = { ...btnBase, background:"#2C2C2A", color:"#F1EFE8",  border:"none" };
+  const inputStyle = { width:"100%", boxSizing:"border-box", padding:"8px 10px", border:"0.5px solid var(--color-border-secondary)", borderRadius:8, fontSize:14, background:"var(--color-background-primary)", color:"var(--color-text-primary)", marginBottom:8 };
+  const labelStyle = { fontSize:13, color:"var(--color-text-secondary)", display:"block", marginBottom:4 };
+
+  function SectionPicker({ section, onChange }) {
+    return (
+      <div style={{ margin:"8px 0" }}>
+        <label style={labelStyle}>Section</label>
+        <select style={{ ...inputStyle, marginBottom:0 }} value={section} onChange={e=>onChange(e.target.value)}>
+          <option value="">— pick one —</option>
+          {SECTIONS.map(s=><option key={s}>{s}</option>)}
+        </select>
+      </div>
+    );
+  }
+
+  function DeckPicker({ deckIds, decks, onChange }) {
+    if (!decks.length) return null;
+    return (
+      <div style={{ margin:"8px 0" }}>
+        <label style={labelStyle}>Decks</label>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+          {decks.map(d=>{
+            const on = deckIds.includes(d.id);
+            return (
+              <button key={d.id} type="button" onClick={()=>onChange(on ? deckIds.filter(id=>id!==d.id) : [...deckIds, d.id])}
+                style={{ padding:"5px 12px", borderRadius:16, fontSize:13, cursor:"pointer", fontWeight:500,
+                  background: on?"#2C2C2A":"var(--color-background-secondary)",
+                  color:      on?"#F1EFE8":"var(--color-text-secondary)",
+                  border:     on?"0.5px solid #2C2C2A":"0.5px solid var(--color-border-secondary)" }}>
+                {d.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  function parseCSV(text) {
+    const lines = text.trim().split("\n");
+    const headers = lines[0].split(",").map(h=>h.replace(/^"|"$/g,"").trim());
+    return lines.slice(1).map(line=>{
+      const vals=[]; let cur="", inQ=false;
+      for (const ch of line) {
+        if (ch==='"') inQ=!inQ;
+        else if (ch==="," && !inQ) { vals.push(cur.trim()); cur=""; }
+        else cur+=ch;
+      }
+      vals.push(cur.trim());
+      const obj={};
+      headers.forEach((h,i)=>obj[h]=(vals[i]||"").replace(/^"|"$/g,""));
+      return obj;
+    });
+  }
+
+  const LS_KEY = 'gmat_flashcards_v1';
+  function loadLS() { try { return JSON.parse(localStorage.getItem(LS_KEY))||{}; } catch { return {}; } }
+  function saveLS(cards, decks, correctPile, wrongPile, studyLog) {
+    localStorage.setItem(LS_KEY, JSON.stringify({ cards, decks, correctPile, wrongPile, studyLog }));
+  }
+
+  function todayStr() { return new Date().toISOString().slice(0,10); }
+
+  const BLANK_FORM = { question:"", A:"", B:"", C:"", D:"", E:"", answer:"A", explanation:"", notes:"", section:"", deckIds:[] };
+
+  function App() {
+    const saved = loadLS();
+    const [cards,         setCards]         = useState(saved.cards        || []);
+    const [decks,         setDecks]         = useState(saved.decks        || []);
+    const [view,          setView]          = useState("landing");
+    const [studyDeck,     setStudyDeck]     = useState([]);
+    const [deckIndex,     setDeckIndex]     = useState(0);
+    const [flipped,       setFlipped]       = useState(false);
+    const [correctPile,   setCorrectPile]   = useState(saved.correctPile  || []);
+    const [wrongPile,     setWrongPile]     = useState(saved.wrongPile    || []);
+    const [form,          setForm]          = useState(BLANK_FORM);
+    const [editingId,     setEditingId]     = useState(null);
+    const [filterSection, setFilterSection] = useState("All");
+    const [filterDeck,    setFilterDeck]    = useState("All");
+    const [drillMode,     setDrillMode]     = useState(false);
+    const [chatInput,     setChatInput]     = useState("");
+    const [chatError,     setChatError]     = useState("");
+    const [elapsed,       setElapsed]       = useState(0);
+    const [deckModal,     setDeckModal]     = useState(false);
+    const [newDeckName,   setNewDeckName]   = useState("");
+    const [studyLog,      setStudyLog]      = useState(saved.studyLog || []);
+    const [feedback,      setFeedback]      = useState(null); // null | {correct, answer, label}
+    const timerRef  = useRef(null);
+    const fileRef   = useRef();
+    const importRef = useRef();
+
+    useEffect(()=>{
+      if (view==="study") {
+        setElapsed(0);
+        clearInterval(timerRef.current);
+        timerRef.current = setInterval(()=>setElapsed(s=>s+1), 1000);
+      } else {
+        clearInterval(timerRef.current);
+      }
+      return ()=>clearInterval(timerRef.current);
+    }, [view, deckIndex]);
+
+    function fmtTime(s) { return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,"0")}`; }
+
+    const optionLabels   = ["A","B","C","D","E"];
+    const filterSections = ["All","Quant","Verbal","Data Insights"];
+    const secFilterStyle = {
+      All:             { active:btnDark, inactive:btnBase },
+      Quant:           { active:{...btnBase,fontWeight:600,background:"#E6EEF8",color:"#0A2A5E",border:"0.5px solid #0A2A5E"}, inactive:btnBase },
+      Verbal:          { active:{...btnBase,fontWeight:600,background:"#F3E8FF",color:"#5B21B6",border:"0.5px solid #7C3AED"}, inactive:btnBase },
+      "Data Insights": { active:{...btnBase,fontWeight:600,background:"#E6F4EC",color:"#14532D",border:"0.5px solid #166534"}, inactive:btnBase },
+    };
+
+    function persist(c, d, cp, wp, sl) { saveLS(c, d, cp, wp, sl !== undefined ? sl : studyLog); }
+
+    function exportData() {
+      const data = { cards, decks, correctPile, wrongPile, studyLog };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type:"application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `gmat-backup-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+    }
+
+    function importData(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const d = JSON.parse(ev.target.result);
+          if (!d.cards) { alert("Invalid backup file."); return; }
+          if (!confirm(`Import ${d.cards.length} cards? This will replace your current data.`)) return;
+          setCards(d.cards || []);
+          setDecks(d.decks || []);
+          setCorrectPile(d.correctPile || []);
+          setWrongPile(d.wrongPile || []);
+          setStudyLog(d.studyLog || []);
+          saveLS(d.cards||[], d.decks||[], d.correctPile||[], d.wrongPile||[], d.studyLog||[]);
+        } catch { alert("Could not read file."); }
+      };
+      reader.readAsText(file);
+      e.target.value = "";
+    }
+
+    // ── Decks ────────────────────────────────────────────────────────────────
+    function createDeck() {
+      const name = newDeckName.trim();
+      if (!name) return;
+      const nd = { id: Date.now(), name };
+      const next = [...decks, nd];
+      setDecks(next); setNewDeckName("");
+      persist(cards, next, correctPile, wrongPile);
+    }
+
+    function deleteDeck(id) {
+      const nextDecks = decks.filter(d=>d.id!==id);
+      const nextCards = cards.map(c=>({ ...c, deckIds:(c.deckIds||[]).filter(did=>did!==id) }));
+      setDecks(nextDecks); setCards(nextCards);
+      if (filterDeck===String(id)) setFilterDeck("All");
+      persist(nextCards, nextDecks, correctPile, wrongPile);
+    }
+
+    // ── Cards ────────────────────────────────────────────────────────────────
+    function addCard(data) {
+      const newCard = { ...BLANK_FORM, ...data, id:Date.now(), section:data.section||"Unknown", stats:{right:0,wrong:0}, confidence:null };
+      setCards(prev=>{ const next=[...prev, newCard]; persist(next, decks, correctPile, wrongPile); return next; });
+    }
+
+    function saveEdit(data) {
+      setCards(prev=>{
+        const next = prev.map(c=>c.id===editingId ? { ...c, ...data, section:data.section||"Unknown" } : c);
+        persist(next, decks, correctPile, wrongPile);
+        return next;
+      });
+      setEditingId(null); setForm(BLANK_FORM); setView("home");
+    }
+
+    function deleteCard(id) {
+      setCards(prev=>{ const next=prev.filter(c=>c.id!==id); persist(next, decks, correctPile, wrongPile); return next; });
+      setCorrectPile(prev=>prev.filter(c=>c.id!==id));
+      setWrongPile(prev=>prev.filter(c=>c.id!==id));
+    }
+
+    function openEdit(card) {
+      setForm({ ...BLANK_FORM, ...card, deckIds:card.deckIds||[] });
+      setEditingId(card.id);
+      setView("add-manual");
+    }
+
+    function handleAddManual() {
+      if (!form.question.trim()||!form.A.trim()) return;
+      if (editingId) saveEdit(form);
+      else { addCard(form); setForm(BLANK_FORM); setView("home"); }
+    }
+
+    function parseChat(text) {
+      const lines = text.split("\n").map(l=>l.trim()).filter(Boolean);
+      const card  = { question:"", A:"", B:"", C:"", D:"", E:"", answer:"", explanation:"" };
+      let mode = null;
+      for (const line of lines) {
+        const lo = line.toLowerCase();
+        if      (lo.startsWith("question:"))    { card.question    = line.slice(9).trim();  mode="q"; }
+        else if (/^a[):.]/.test(lo))            { card.A           = line.slice(2).trim();  mode=null; }
+        else if (/^b[):.]/.test(lo))            { card.B           = line.slice(2).trim();  mode=null; }
+        else if (/^c[):.]/.test(lo))            { card.C           = line.slice(2).trim();  mode=null; }
+        else if (/^d[):.]/.test(lo))            { card.D           = line.slice(2).trim();  mode=null; }
+        else if (/^e[):.]/.test(lo))            { card.E           = line.slice(2).trim();  mode=null; }
+        else if (lo.startsWith("answer:"))      { card.answer      = line.slice(7).trim().toUpperCase().charAt(0); mode=null; }
+        else if (lo.startsWith("explanation:")) { card.explanation = line.slice(12).trim(); mode="ex"; }
+        else if (mode==="q")  card.question    += " "+line;
+        else if (mode==="ex") card.explanation += " "+line;
+      }
+      return card;
+    }
+
+    function handleAddFromChat() {
+      setChatError("");
+      const parsed = parseChat(chatInput);
+      if (!parsed.question||!parsed.A||!parsed.answer) {
+        setChatError("Couldn't parse. Include Question, options (A–E), and Answer."); return;
+      }
+      addCard({ ...parsed, section:form.section, notes:form.notes, deckIds:form.deckIds });
+      setChatInput(""); setForm(BLANK_FORM); setView("home");
+    }
+
+    async function handleFile(e) {
+      const file = e.target.files[0]; if (!file) return;
+      const text = await file.text();
+      let raw = [];
+      try { raw = file.name.endsWith(".json") ? JSON.parse(text) : parseCSV(text); }
+      catch { alert("Could not parse file."); return; }
+      if (!raw.length) { alert("No cards found."); return; }
+      const imported = raw.map((r,i)=>({
+        question:r.question||"", A:r.A||"", B:r.B||"", C:r.C||"", D:r.D||"", E:r.E||"",
+        answer:r.answer||"A", explanation:r.explanation||"", notes:"",
+        id:Date.now()+i, section:r.section||"Unknown", deckIds:[],
+        stats:{right:0,wrong:0}, confidence:null,
+      }));
+      setCards(prev=>{ const next=[...prev,...imported]; persist(next,decks,correctPile,wrongPile); return next; });
+      setView("home"); e.target.value="";
+    }
+
+    // ── Study ────────────────────────────────────────────────────────────────
+    function startStudy(deck, isDrill=false) {
+      const shuffled = [...deck].sort(()=>Math.random()-0.5);
+      setStudyDeck(shuffled); setDeckIndex(0); setFlipped(false); setDrillMode(isDrill); setView("study");
+    }
+
+    function handlePick(picked) {
+      clearInterval(timerRef.current);
+      const card      = studyDeck[deckIndex];
+      const isCorrect = picked === card.answer;
+      const updatedCards = cards.map(c=>c.id===card.id ? {
+        ...c,
+        stats:{ right:(c.stats?.right||0)+(isCorrect?1:0), wrong:(c.stats?.wrong||0)+(!isCorrect?1:0) }
+      } : c);
+      setCards(updatedCards);
+      persist(updatedCards, decks, correctPile, wrongPile);
+      setFeedback({ picked, isCorrect, elapsed });
+    }
+
+    function handleConfidence(confidence) {
+      const card = studyDeck[deckIndex];
+      const isCorrect = feedback?.isCorrect;
+      const updatedCards = cards.map(c=>c.id===card.id ? {...c, confidence} : c);
+      setCards(updatedCards);
+      const entry = { date:todayStr(), section:card.section||"Unknown", confidence };
+      const nextLog = [...studyLog, entry];
+      setStudyLog(nextLog);
+      let nextCorrect, nextWrong;
+      if (isCorrect) {
+        nextCorrect = [...correctPile.filter(c=>c.id!==card.id), card];
+        nextWrong   = wrongPile.filter(c=>c.id!==card.id);
+      } else {
+        nextWrong   = [...wrongPile.filter(c=>c.id!==card.id), card];
+        nextCorrect = correctPile.filter(c=>c.id!==card.id);
+      }
+      setCorrectPile(nextCorrect); setWrongPile(nextWrong);
+      persist(updatedCards, decks, nextCorrect, nextWrong, nextLog);
+      setFeedback(null);
+      if (deckIndex+1 < studyDeck.length) { setDeckIndex(i=>i+1); setFlipped(false); }
+      else setView("piles");
+    }
+
+    const filteredCards = cards.filter(c=>{
+      const okSection = filterSection==="All" || c.section===filterSection;
+      const okDeck    = filterDeck==="All"    || (c.deckIds||[]).includes(Number(filterDeck));
+      return okSection && okDeck;
+    });
+
+    const currentCard = studyDeck[deckIndex];
+    const progressPct = studyDeck.length ? Math.round((deckIndex/studyDeck.length)*100) : 0;
+    const sc          = currentCard ? (SECTION_COLORS[currentCard.section]||SECTION_COLORS.Unknown) : null;
+
+    const quantCount  = cards.filter(c=>c.section==="Quant").length;
+    const verbalCount = cards.filter(c=>c.section==="Verbal").length;
+    const dataCount   = cards.filter(c=>c.section==="Data Insights").length;
+
+    // ── STUDY VIEW ───────────────────────────────────────────────────────────
+    if (view==="landing") {
+      return (
+        <div style={{
+          minHeight:"100dvh", display:"flex", flexDirection:"column",
+          alignItems:"center", justifyContent:"center",
+          background:"#0A2A5E", position:"relative", overflow:"hidden"
+        }}>
+          {/* subtle grid pattern */}
+          <div style={{
+            position:"absolute", inset:0, opacity:0.06,
+            backgroundImage:"linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)",
+            backgroundSize:"40px 40px"
+          }}/>
+          <div style={{position:"relative", textAlign:"center", padding:"2rem"}}>
+            <p style={{
+              fontSize:13, fontWeight:700, letterSpacing:"0.18em",
+              color:"rgba(255,255,255,0.5)", textTransform:"uppercase", marginBottom:24
+            }}>By Taxiarchis</p>
+            <h1 style={{
+              fontSize:"clamp(2.8rem,8vw,5rem)", fontWeight:800,
+              color:"#fff", lineHeight:1.1, marginBottom:12
+            }}>GMAT</h1>
+            <h2 style={{
+              fontSize:"clamp(1.4rem,4vw,2.2rem)", fontWeight:300,
+              color:"rgba(255,255,255,0.75)", letterSpacing:"0.12em",
+              textTransform:"uppercase", marginBottom:56
+            }}>Preparation</h2>
+            <button
+              onClick={()=>setView("menu")}
+              style={{
+                background:"#fff", color:"#0A2A5E",
+                border:"none", borderRadius:50,
+                padding:"16px 48px", fontSize:16, fontWeight:700,
+                cursor:"pointer", letterSpacing:"0.04em",
+                boxShadow:"0 8px 32px rgba(0,0,0,0.25)",
+                transition:"transform 0.15s, box-shadow 0.15s"
+              }}
+              onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 12px 40px rgba(0,0,0,0.35)";}}
+              onMouseLeave={e=>{e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="0 8px 32px rgba(0,0,0,0.25)";}}
+            >
+              Get Started
+            </button>
+          </div>
+          {/* bottom accent */}
+          <div style={{
+            position:"absolute", bottom:0, left:0, right:0, height:4,
+            background:"linear-gradient(90deg,#7C3AED,#E91E8C,#166534)"
+          }}/>
+        </div>
+      );
+    }
+
+    if (view==="menu") {
+      return (
+        <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"var(--color-background-secondary)",padding:"2rem",gap:"1.5rem"}}>
+          <div style={{textAlign:"center",marginBottom:"1rem"}}>
+            <p style={{fontSize:12,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:"var(--color-text-tertiary)",marginBottom:8}}>GMAT Preparation</p>
+            <h1 style={{fontSize:"clamp(1.8rem,5vw,2.8rem)",fontWeight:800,color:"var(--color-text-primary)",margin:0}}>What would you like to do?</h1>
+          </div>
+          <div style={{display:"flex",gap:"1.25rem",flexWrap:"wrap",justifyContent:"center",width:"100%",maxWidth:960}}>
+            {/* STUDY card */}
+            <button onClick={()=>setView("study-pick")} style={{
+              flex:"1 1 220px",minHeight:200,border:"none",borderRadius:20,
+              background:"#0A2A5E",color:"#fff",cursor:"pointer",
+              display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,
+              padding:"2rem",boxShadow:"0 8px 32px rgba(10,42,94,0.18)",transition:"transform 0.15s,box-shadow 0.15s"
+            }}
+            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow="0 16px 48px rgba(10,42,94,0.28)";}}
+            onMouseLeave={e=>{e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="0 8px 32px rgba(10,42,94,0.18)";}}>
+              <div>
+                <p style={{fontSize:20,fontWeight:800,margin:"0 0 6px",letterSpacing:"-0.02em"}}>Study</p>
+                <p style={{fontSize:13,color:"rgba(255,255,255,0.65)",margin:0}}>Flip cards &amp; track progress</p>
+              </div>
+            </button>
+            {/* VIEW DECKS card */}
+            <button onClick={()=>setView("home")} style={{
+              flex:"1 1 220px",minHeight:200,border:"1.5px solid var(--color-border-secondary)",borderRadius:20,
+              background:"var(--color-background-primary)",color:"var(--color-text-primary)",cursor:"pointer",
+              display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,
+              padding:"2rem",boxShadow:"0 4px 16px rgba(0,0,0,0.06)",transition:"transform 0.15s,box-shadow 0.15s"
+            }}
+            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow="0 12px 36px rgba(0,0,0,0.12)";}}
+            onMouseLeave={e=>{e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,0.06)";}}>
+              <div>
+                <p style={{fontSize:20,fontWeight:800,margin:"0 0 6px",letterSpacing:"-0.02em"}}>View Decks</p>
+                <p style={{fontSize:13,color:"var(--color-text-tertiary)",margin:0}}>Add cards &amp; manage decks</p>
+              </div>
+            </button>
+            {/* STATS card */}
+            <button onClick={()=>setView("stats")} style={{
+              flex:"1 1 220px",minHeight:200,border:"1.5px solid #E91E8C",borderRadius:20,
+              background:"#FDE8F4",color:"#B0006A",cursor:"pointer",
+              display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,
+              padding:"2rem",boxShadow:"0 4px 16px rgba(233,30,140,0.1)",transition:"transform 0.15s,box-shadow 0.15s"
+            }}
+            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow="0 12px 36px rgba(233,30,140,0.2)";}}
+            onMouseLeave={e=>{e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="0 4px 16px rgba(233,30,140,0.1)";}}>
+              <div>
+                <p style={{fontSize:20,fontWeight:800,margin:"0 0 6px",letterSpacing:"-0.02em"}}>Stats</p>
+                <p style={{fontSize:13,color:"#C2185B",margin:0,opacity:0.8}}>Progress &amp; performance</p>
+              </div>
+            </button>
+          </div>
+          <button onClick={()=>setView("landing")} style={{marginTop:"0.5rem",background:"none",border:"none",cursor:"pointer",fontSize:13,color:"var(--color-text-tertiary)",textDecoration:"underline"}}>← Back to start</button>
+        </div>
+      );
+    }
+
+    if (view==="study-pick") {
+      const sections = [
+        {label:"All",sub:`${cards.length} cards`,bg:"#0A2A5E",color:"#fff",cards:cards},
+        {label:"Quant",sub:`${quantCount} cards`,bg:"#E6EEF8",color:"#0A2A5E",border:"#0A2A5E",cards:cards.filter(c=>c.section==="Quant")},
+        {label:"Verbal",sub:`${verbalCount} cards`,bg:"#F3E8FF",color:"#5B21B6",border:"#7C3AED",cards:cards.filter(c=>c.section==="Verbal")},
+        {label:"Data Insights",sub:`${dataCount} cards`,bg:"#E6F4EC",color:"#14532D",border:"#166534",cards:cards.filter(c=>c.section==="Data Insights")},
+        ...(wrongPile.length>0?[{label:"Drill Hard",sub:`${wrongPile.length} cards`,bg:"#FCEBEB",color:"#A32D2D",border:"#A32D2D",cards:wrongPile,drill:true}]:[])
+      ].filter(s=>s.cards.length>0);
+      return (
+        <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"var(--color-background-secondary)",padding:"2rem",gap:"1.5rem"}}>
+          <div style={{textAlign:"center",marginBottom:"0.5rem"}}>
+            <p style={{fontSize:12,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:"var(--color-text-tertiary)",marginBottom:8}}>Study Mode</p>
+            <h1 style={{fontSize:"clamp(1.6rem,4vw,2.4rem)",fontWeight:800,color:"var(--color-text-primary)",margin:0}}>Choose a section</h1>
+          </div>
+          {cards.length===0 ? (
+            <p style={{color:"var(--color-text-secondary)",fontSize:15}}>No cards yet. Add some cards first.</p>
+          ) : (
+            <div style={{display:"flex",flexDirection:"column",gap:10,width:"100%",maxWidth:460}}>
+              {sections.map(s=>(
+                <button key={s.label} onClick={()=>startStudy(s.cards,s.drill)} style={{
+                  background:s.bg,color:s.color,
+                  border:s.border?`1.5px solid ${s.border}`:"none",
+                  borderRadius:14,padding:"18px 24px",cursor:"pointer",
+                  display:"flex",justifyContent:"space-between",alignItems:"center",
+                  boxShadow:"0 2px 8px rgba(0,0,0,0.07)",transition:"transform 0.12s,box-shadow 0.12s",
+                  fontFamily:"inherit"
+                }}
+                onMouseEnter={e=>{e.currentTarget.style.transform="translateX(4px)";e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,0.13)";}}
+                onMouseLeave={e=>{e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,0.07)";}}>
+                  <span style={{fontSize:17,fontWeight:700}}>{s.label}</span>
+                  <span style={{fontSize:13,opacity:0.75}}>{s.sub} →</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <button onClick={()=>setView("menu")} style={{marginTop:"0.5rem",background:"none",border:"none",cursor:"pointer",fontSize:13,color:"var(--color-text-tertiary)",textDecoration:"underline"}}>← Back</button>
+        </div>
+      );
+    }
+
+    if (view==="study" && currentCard) {
+      const opts        = Object.entries({A:currentCard.A,B:currentCard.B,C:currentCard.C,D:currentCard.D,E:currentCard.E}).filter(([,v])=>v?.trim());
+      const timerColor  = elapsed>=120?"#A32D2D":elapsed>=60?"#7A5500":"var(--color-text-secondary)";
+      const timerBg     = elapsed>=120?"#FCEBEB":elapsed>=60?"#FFF8E6":"var(--color-background-secondary)";
+      const timerBorder = elapsed>=120?"#A32D2D":elapsed>=60?"#F0C040":"var(--color-border-secondary)";
+      const picked      = feedback?.picked;
+      const correct     = currentCard.answer;
+
+      function optStyle(lbl) {
+        if (!picked) return {background:"#f4f4f5",border:"1.5px solid #e4e4e7",color:"#1a1a1a"};
+        if (lbl===correct) return {background:"#EAF3DE",border:"1.5px solid #3B6D11",color:"#27500A"};
+        if (lbl===picked)  return {background:"#FCEBEB",border:"1.5px solid #A32D2D",color:"#A32D2D"};
+        return {background:"#f4f4f5",border:"1.5px solid transparent",color:"#1a1a1a",opacity:0.4};
+      }
+
+      return (
+        <div style={{padding:"1.5rem 1rem",maxWidth:780,margin:"0 auto"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <button onClick={()=>setView(drillMode?"piles":"study-pick")} style={btnBase}>← Back</button>
+            <span style={{fontSize:13,color:"var(--color-text-secondary)"}}>{deckIndex+1} / {studyDeck.length}</span>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:13,fontWeight:600,color:timerColor,background:timerBg,border:`0.5px solid ${timerBorder}`,borderRadius:8,padding:"4px 10px"}}>⏱ {fmtTime(elapsed)}</span>
+              <Badge section={currentCard.section} />
+            </div>
+          </div>
+          <div style={{height:6,background:"var(--color-border-tertiary)",borderRadius:4,marginBottom:"1.5rem"}}>
+            <div style={{height:6,borderRadius:4,width:`${progressPct}%`,background:sc?.accent||"#185FA5",transition:"width 0.4s"}} />
+          </div>
+
+          <div key={deckIndex} style={{background:"#ffffff",border:`1.5px solid ${sc?.border||"var(--color-border-secondary)"}`,borderTop:`5px solid ${sc?.accent||"#185FA5"}`,borderRadius:16,padding:"2rem 2rem 1.75rem",animation:"flipIn 0.25s ease"}}>
+            <p style={{fontWeight:500,fontSize:17,marginBottom:"1.5rem",color:"#1a1a1a",lineHeight:1.65}}>{currentCard.question}</p>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {opts.map(([lbl,val])=>(
+                <button key={lbl} disabled={!!picked} onClick={()=>handlePick(lbl)}
+                  style={{display:"flex",gap:12,fontSize:15,padding:"12px 16px",borderRadius:10,lineHeight:1.5,cursor:picked?"default":"pointer",textAlign:"left",fontFamily:"inherit",transition:"opacity 0.2s",...optStyle(lbl)}}>
+                  <span style={{fontWeight:700,minWidth:22,flexShrink:0}}>{lbl})</span><span>{val}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Inline feedback after picking */}
+            {picked && (
+              <div style={{marginTop:"1.5rem",padding:"14px 18px",borderRadius:12,background:feedback.isCorrect?"#EAF3DE":"#FCEBEB",border:`1px solid ${feedback.isCorrect?"#3B6D11":"#A32D2D"}`}}>
+                <p style={{fontWeight:700,fontSize:18,color:feedback.isCorrect?"#27500A":"#A32D2D",margin:"0 0 4px"}}>
+                  {feedback.isCorrect ? "Correct!" : "Wrong"}
+                </p>
+                {!feedback.isCorrect && (
+                  <p style={{fontSize:14,color:"#27500A",margin:"0 0 8px"}}>Correct answer: <strong>{correct}) {currentCard[correct]}</strong></p>
+                )}
+                {currentCard.explanation && (
+                  <p style={{fontSize:15,color:"#1a1a1a",lineHeight:1.7,margin:0,borderTop:`0.5px solid ${feedback.isCorrect?"#3B6D11":"#A32D2D"}`,paddingTop:10,marginTop:10,fontWeight:500}}>
+                    {currentCard.explanation}
+                  </p>
+                )}
+                <p style={{fontSize:12,color:feedback.isCorrect?"#3B6D11":"#A32D2D",margin:"8px 0 0",opacity:0.7}}>
+                  Time: {fmtTime(feedback.elapsed)}
+                </p>
+              </div>
+            )}
+            {currentCard.notes && picked && (
+              <div style={{background:"#FFF8E6",border:"0.5px solid #F0C040",borderRadius:8,padding:"12px 14px",marginTop:10}}>
+                <p style={{fontSize:12,color:"#7A5500",fontWeight:500,marginBottom:4}}>My note</p>
+                <p style={{fontSize:14,color:"#5A4000",lineHeight:1.6,margin:0}}>{currentCard.notes}</p>
+              </div>
+            )}
+          </div>
+
+          {picked && (
+            <div style={{display:"flex",gap:8,marginTop:"1rem"}}>
+              <button onClick={()=>handleConfidence(1)} style={{...btnDanger, flex:1,fontSize:14}}>Hard</button>
+              <button onClick={()=>handleConfidence(2)} style={{...btnOK,     flex:1,fontSize:14}}>OK</button>
+              <button onClick={()=>handleConfidence(3)} style={{...btnSuccess,flex:1,fontSize:14}}>Easy</button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ── PILES VIEW ───────────────────────────────────────────────────────────
+    if (view==="piles") {
+      const counts  = {};
+      wrongPile.forEach(c=>{ const k=c.section||"Unknown"; counts[k]=(counts[k]||0)+1; });
+      const weaknesses = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+      const total = correctPile.length+wrongPile.length;
+      const pct   = total ? Math.round((correctPile.length/total)*100) : 0;
+      return (
+        <div style={{padding:"1.5rem 1rem",maxWidth:780,margin:"0 auto"}}>
+          <button onClick={()=>setView("home")} style={{...btnBase,marginBottom:"1.5rem"}}>← Home</button>
+          <h2 style={{fontSize:18,fontWeight:500,marginBottom:"1.5rem",color:"var(--color-text-primary)"}}>Session results</h2>
+          <div style={{background:"var(--color-background-secondary)",borderRadius:12,padding:"1.25rem",marginBottom:"1.5rem",border:"0.5px solid var(--color-border-tertiary)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--color-text-secondary)",marginBottom:8}}>
+              <span>Score</span><span style={{fontWeight:500,color:"var(--color-text-primary)"}}>{pct}%</span>
+            </div>
+            <div style={{height:10,background:"var(--color-border-tertiary)",borderRadius:6}}>
+              <div style={{height:10,borderRadius:6,width:`${pct}%`,background:pct>=70?"#3B6D11":"#A32D2D",transition:"width 0.5s"}} />
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:"1.5rem"}}>
+            <div style={{background:"#EAF3DE",borderRadius:10,padding:"1rem",border:"0.5px solid #3B6D11"}}>
+              <p style={{fontSize:13,color:"#3B6D11",margin:0}}>Easy + OK</p>
+              <p style={{fontSize:28,fontWeight:500,color:"#27500A",margin:"4px 0 0"}}>{correctPile.length}</p>
+            </div>
+            <div style={{background:"#FCEBEB",borderRadius:10,padding:"1rem",border:"0.5px solid #A32D2D"}}>
+              <p style={{fontSize:13,color:"#A32D2D",margin:0}}>Hard (to review)</p>
+              <p style={{fontSize:28,fontWeight:500,color:"#791F1F",margin:"4px 0 0"}}>{wrongPile.length}</p>
+            </div>
+          </div>
+          {weaknesses.length>0 && (
+            <>
+              <h3 style={{fontSize:15,fontWeight:500,marginBottom:12,color:"var(--color-text-primary)"}}>Weak spots</h3>
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:"1.5rem"}}>
+                {weaknesses.map(([section,count])=>{
+                  const c=SECTION_COLORS[section]||SECTION_COLORS.Unknown;
+                  return (
+                    <div key={section} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:c.bg,borderRadius:8,border:`0.5px solid ${c.border}`}}>
+                      <span style={{fontSize:13,color:c.text,fontWeight:500}}>{section}</span>
+                      <span style={{fontSize:13,fontWeight:600,color:"#A32D2D"}}>{count} hard</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          {wrongPile.length>0 && <button onClick={()=>startStudy(wrongPile,true)} style={{...btnDanger,width:"100%"}}>Drill hard pile ({wrongPile.length} cards)</button>}
+        </div>
+      );
+    }
+
+    // ── ADD / EDIT VIEW ──────────────────────────────────────────────────────
+    if (view==="add-manual") return (
+      <div style={{padding:"1.5rem 1rem",maxWidth:700,margin:"0 auto"}}>
+        <button onClick={()=>{setView("home");setEditingId(null);setForm(BLANK_FORM);}} style={{...btnBase,marginBottom:"1.5rem"}}>← Back</button>
+        <h2 style={{fontSize:18,fontWeight:500,marginBottom:"1.5rem",color:"var(--color-text-primary)"}}>{editingId?"Edit card":"Add card manually"}</h2>
+        <label style={labelStyle}>Question</label>
+        <textarea rows={3} style={{...inputStyle,resize:"vertical"}} placeholder="Enter your GMAT question..." value={form.question} onChange={e=>setForm(f=>({...f,question:e.target.value}))} />
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,margin:"8px 0"}}>
+          {optionLabels.map(l=>(
+            <input key={l} style={{...inputStyle,marginBottom:0}} placeholder={`Option ${l}`} value={form[l]} onChange={e=>setForm(f=>({...f,[l]:e.target.value}))} />
+          ))}
+        </div>
+        <div style={{display:"flex",gap:12,alignItems:"center",margin:"12px 0 8px"}}>
+          <label style={{...labelStyle,marginBottom:0,whiteSpace:"nowrap"}}>Correct answer</label>
+          <select style={{...inputStyle,marginBottom:0,width:"auto"}} value={form.answer} onChange={e=>setForm(f=>({...f,answer:e.target.value}))}>
+            {optionLabels.map(l=><option key={l}>{l}</option>)}
+          </select>
+        </div>
+        <label style={{...labelStyle,marginTop:8}}>Explanation (optional)</label>
+        <textarea rows={2} style={{...inputStyle,resize:"vertical"}} placeholder="Why is this the correct answer?" value={form.explanation} onChange={e=>setForm(f=>({...f,explanation:e.target.value}))} />
+        <label style={{...labelStyle,marginTop:8}}>My notes (optional)</label>
+        <textarea rows={2} style={{...inputStyle,resize:"vertical"}} placeholder="Personal tips or reminders..." value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} />
+        <SectionPicker section={form.section} onChange={s=>setForm(f=>({...f,section:s}))} />
+        <DeckPicker deckIds={form.deckIds} decks={decks} onChange={ids=>setForm(f=>({...f,deckIds:ids}))} />
+        <button onClick={handleAddManual} disabled={!form.question.trim()||!form.A.trim()} style={{...btnBlue,marginTop:8}}>
+          {editingId?"Save changes":"Save card"}
+        </button>
+      </div>
+    );
+
+    // ── ADD FROM CHAT VIEW ───────────────────────────────────────────────────
+    if (view==="add-chat") return (
+      <div style={{padding:"1.5rem 1rem",maxWidth:700,margin:"0 auto"}}>
+        <button onClick={()=>setView("home")} style={{...btnBase,marginBottom:"1.5rem"}}>← Back</button>
+        <h2 style={{fontSize:18,fontWeight:500,marginBottom:8,color:"var(--color-text-primary)"}}>Paste a card from chat</h2>
+        <pre style={{fontSize:12,background:"#E6F1FB",border:"0.5px solid #185FA5",borderRadius:8,padding:"10px 12px",color:"#0C447C",marginBottom:"1rem",lineHeight:1.7,overflowX:"auto"}}>{`Question: If x² - 5x + 6 = 0, what is x?\nA) 1 or 2\nB) 2 or 3\nC) 3 or 4\nD) -2 or -3\nE) -1 or 6\nAnswer: B\nExplanation: Factor to (x-2)(x-3)=0`}</pre>
+        <textarea rows={8} style={{...inputStyle,resize:"vertical"}} placeholder="Paste your card here..." value={chatInput} onChange={e=>{setChatInput(e.target.value);setChatError("");}} />
+        {chatError && <p style={{fontSize:13,color:"#A32D2D",marginBottom:8}}>{chatError}</p>}
+        <label style={{...labelStyle,marginTop:8}}>My notes (optional)</label>
+        <textarea rows={2} style={{...inputStyle,resize:"vertical"}} placeholder="Personal tips or reminders..." value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} />
+        <SectionPicker section={form.section} onChange={s=>setForm(f=>({...f,section:s}))} />
+        <DeckPicker deckIds={form.deckIds} decks={decks} onChange={ids=>setForm(f=>({...f,deckIds:ids}))} />
+        <button onClick={handleAddFromChat} disabled={!chatInput.trim()} style={{...btnPurple,marginTop:8}}>Add card</button>
+      </div>
+    );
+
+    // ── ADD FILE VIEW ────────────────────────────────────────────────────────
+    if (view==="add-file") return (
+      <div style={{padding:"1.5rem 1rem",maxWidth:700,margin:"0 auto"}}>
+        <button onClick={()=>setView("home")} style={{...btnBase,marginBottom:"1.5rem"}}>← Back</button>
+        <h2 style={{fontSize:18,fontWeight:500,marginBottom:8,color:"var(--color-text-primary)"}}>Upload a file</h2>
+        <p style={{fontSize:13,color:"var(--color-text-secondary)",marginBottom:"1rem",lineHeight:1.6}}>
+          Supports CSV and JSON. Include a <strong>section</strong> column to pre-label cards.
+        </p>
+        <pre style={{fontSize:12,background:"#E1F5EE",border:"0.5px solid #0F6E56",borderRadius:8,padding:"10px 12px",color:"#085041",marginBottom:"1.5rem",lineHeight:1.7,overflowX:"auto"}}>{`CSV:\nquestion, A, B, C, D, E, answer, explanation, section\n\nJSON:\n[{ "question":"...", "A":"...", "B":"...",\n   "C":"...", "D":"...", "E":"...",\n   "answer":"B", "explanation":"...",\n   "section":"Quant" }]`}</pre>
+        <input ref={fileRef} type="file" accept=".csv,.json" style={{display:"none"}} onChange={handleFile} />
+        <button onClick={()=>fileRef.current.click()} style={{...btnTeal,display:"flex",alignItems:"center",gap:8}}>Upload CSV or JSON</button>
+      </div>
+    );
+
+    // ── STATS VIEW ───────────────────────────────────────────────────────────
+    if (view==="stats") {
+      const PINK = "#E91E8C";
+      const PINK_BG = "#FDE8F4";
+      const PINK_BORDER = "#E91E8C";
+
+      // build last 14 days
+      const days = Array.from({length:14}, (_,i)=>{
+        const d = new Date(); d.setDate(d.getDate()-(13-i));
+        return d.toISOString().slice(0,10);
+      });
+      const dayData = days.map(date=>{
+        const entries = studyLog.filter(e=>e.date===date);
+        return {
+          date,
+          label: new Date(date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short"}).slice(0,1),
+          total:   entries.length,
+          correct: entries.filter(e=>e.confidence>=2).length,
+          hard:    entries.filter(e=>e.confidence===1).length,
+        };
+      });
+      const maxDay = Math.max(...dayData.map(d=>d.total), 1);
+
+      // overall stats
+      const totalStudied  = studyLog.length;
+      const totalCorrect  = studyLog.filter(e=>e.confidence>=2).length;
+      const accuracy      = totalStudied ? Math.round((totalCorrect/totalStudied)*100) : 0;
+
+      // streak
+      let streak = 0;
+      for (let i=0; i<365; i++) {
+        const d = new Date(); d.setDate(d.getDate()-i);
+        const ds = d.toISOString().slice(0,10);
+        if (studyLog.some(e=>e.date===ds)) streak++;
+        else break;
+      }
+
+      // section accuracy
+      const secStats = SECTIONS.map(s=>{
+        const logs = studyLog.filter(e=>e.section===s);
+        const right = logs.filter(e=>e.confidence>=2).length;
+        return { section:s, total:logs.length, right, pct: logs.length ? Math.round((right/logs.length)*100) : null };
+      }).filter(s=>s.total>0);
+
+      // confidence breakdown from current card states
+      const confCounts = { 1:0, 2:0, 3:0, null:0 };
+      cards.forEach(c=>{ const k = c.confidence ?? null; confCounts[k] = (confCounts[k]||0)+1; });
+      const studiedCards = cards.filter(c=>c.confidence!==null&&c.confidence!==undefined);
+
+      // hardest cards (most hard marks)
+      const hardCards = [...cards].filter(c=>(c.stats?.wrong||0)>0).sort((a,b)=>(b.stats?.wrong||0)-(a.stats?.wrong||0)).slice(0,5);
+
+      // best day
+      const allDays = {};
+      studyLog.forEach(e=>{ allDays[e.date]=(allDays[e.date]||0)+1; });
+      const bestDayEntry = Object.entries(allDays).sort((a,b)=>b[1]-a[1])[0];
+
+      const statCard = (val, label, color="#1a1a1a") => (
+        <div style={{background:"var(--color-background-primary)",borderRadius:12,padding:"1rem",border:"0.5px solid var(--color-border-secondary)",textAlign:"center"}}>
+          <p style={{fontSize:28,fontWeight:700,color,margin:"0 0 4px"}}>{val}</p>
+          <p style={{fontSize:12,color:"var(--color-text-tertiary)",margin:0}}>{label}</p>
+        </div>
+      );
+
+      return (
+        <div style={{padding:"1.5rem 1rem",maxWidth:780,margin:"0 auto"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.5rem"}}>
+            <button onClick={()=>setView("menu")} style={btnBase}>← Menu</button>
+            <button onClick={()=>{ if(!confirm("Clear all stats? This cannot be undone.")) return; const reset=cards.map(c=>({...c,stats:{right:0,wrong:0},confidence:null})); setCards(reset); setCorrectPile([]); setWrongPile([]); setStudyLog([]); saveLS(reset,decks,[],[],[]); }} style={{...btnBase,color:"#A32D2D",border:"0.5px solid #A32D2D",background:"#FCEBEB"}}>Clear stats</button>
+          </div>
+          <h2 style={{fontSize:20,fontWeight:700,marginBottom:"1.5rem",color:PINK}}>Stats</h2>
+
+          {/* Top stat cards */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:"1.5rem"}}>
+            {statCard(streak,"Day streak", PINK)}
+            {statCard(totalStudied,"Cards studied", "var(--color-text-primary)")}
+            {statCard(accuracy+"%","Overall accuracy", accuracy>=70?"#27500A":"#A32D2D")}
+          </div>
+
+          {/* Daily activity graph */}
+          <div style={{background:"var(--color-background-primary)",borderRadius:12,padding:"1.25rem",border:`1.5px solid ${PINK_BORDER}`,marginBottom:"1.5rem"}}>
+            <p style={{fontSize:14,fontWeight:700,color:PINK,marginBottom:"1rem"}}>Daily activity — last 14 days</p>
+            <div style={{display:"flex",alignItems:"flex-end",gap:4,height:80}}>
+              {dayData.map((d,i)=>{
+                const totalH  = maxDay ? Math.round((d.total/maxDay)*72) : 0;
+                const correctH= d.total ? Math.round((d.correct/d.total)*totalH) : 0;
+                return (
+                  <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                    <div style={{width:"100%",position:"relative",height:72,display:"flex",alignItems:"flex-end"}}>
+                      {/* background bar */}
+                      <div style={{position:"absolute",bottom:0,left:0,right:0,height:totalH||2,borderRadius:3,background:PINK_BG,border:`0.5px solid ${PINK_BORDER}`,opacity:0.5}} />
+                      {/* correct portion */}
+                      <div style={{position:"absolute",bottom:0,left:0,right:0,height:correctH,borderRadius:3,background:PINK}} />
+                    </div>
+                    <span style={{fontSize:9,color:"var(--color-text-tertiary)",fontWeight:600}}>{d.label}</span>
+                    {d.total>0 && <span style={{fontSize:9,color:PINK,fontWeight:700}}>{d.total}</span>}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{display:"flex",gap:12,marginTop:8}}>
+              <span style={{fontSize:11,color:"var(--color-text-tertiary)",display:"flex",alignItems:"center",gap:4}}>
+                <span style={{width:10,height:10,borderRadius:2,background:PINK,display:"inline-block"}} /> Correct
+              </span>
+              <span style={{fontSize:11,color:"var(--color-text-tertiary)",display:"flex",alignItems:"center",gap:4}}>
+                <span style={{width:10,height:10,borderRadius:2,background:PINK_BG,border:`0.5px solid ${PINK_BORDER}`,display:"inline-block"}} /> Total
+              </span>
+            </div>
+          </div>
+
+          {/* Section accuracy */}
+          {secStats.length>0 && (
+            <div style={{background:"var(--color-background-primary)",borderRadius:12,padding:"1.25rem",border:"0.5px solid var(--color-border-secondary)",marginBottom:"1.5rem"}}>
+              <p style={{fontSize:14,fontWeight:700,color:PINK,marginBottom:"1rem"}}>Accuracy by section</p>
+              {secStats.map(s=>{
+                const c=SECTION_COLORS[s.section]||SECTION_COLORS.Unknown;
+                return (
+                  <div key={s.section} style={{marginBottom:12}}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}>
+                      <span style={{fontWeight:600,color:c.text}}>{s.section}</span>
+                      <span style={{color:"var(--color-text-secondary)"}}>{s.right}/{s.total} · <strong>{s.pct}%</strong></span>
+                    </div>
+                    <div style={{height:8,background:"var(--color-border-tertiary)",borderRadius:4}}>
+                      <div style={{height:8,borderRadius:4,width:`${s.pct}%`,background:c.accent,transition:"width 0.5s"}} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Confidence breakdown */}
+          {studiedCards.length>0 && (
+            <div style={{background:"var(--color-background-primary)",borderRadius:12,padding:"1.25rem",border:"0.5px solid var(--color-border-secondary)",marginBottom:"1.5rem"}}>
+              <p style={{fontSize:14,fontWeight:700,color:PINK,marginBottom:"1rem"}}>Card confidence snapshot</p>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                {[3,2,1].map(conf=>{
+                  const cs=CONF_STYLE[conf];
+                  const count=confCounts[conf]||0;
+                  return (
+                    <div key={conf} style={{background:cs.bg,borderRadius:10,padding:"10px",border:`0.5px solid ${cs.border}`,textAlign:"center"}}>
+                      <p style={{fontSize:22,fontWeight:700,color:cs.color,margin:"0 0 2px"}}>{count}</p>
+                      <p style={{fontSize:11,color:cs.color,margin:0,fontWeight:500}}>{cs.label}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Hardest cards */}
+          {hardCards.length>0 && (
+            <div style={{background:"var(--color-background-primary)",borderRadius:12,padding:"1.25rem",border:"0.5px solid var(--color-border-secondary)",marginBottom:"1.5rem"}}>
+              <p style={{fontSize:14,fontWeight:700,color:PINK,marginBottom:"1rem"}}>Hardest cards</p>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {hardCards.map(card=>{
+                  const c=SECTION_COLORS[card.section]||SECTION_COLORS.Unknown;
+                  return (
+                    <div key={card.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:"var(--color-background-secondary)",borderRadius:8,borderLeft:`4px solid ${c.accent}`}}>
+                      <span style={{fontSize:13,color:"var(--color-text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,marginRight:8}}>{card.question}</span>
+                      <span style={{fontSize:12,fontWeight:700,color:"#A32D2D",flexShrink:0}}>{card.stats.wrong}✗</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Extra stats */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1.5rem"}}>
+            {statCard(cards.filter(c=>c.confidence===3).length, "Cards mastered (Easy)", "#27500A")}
+            {bestDayEntry ? statCard(bestDayEntry[1], `Best day (${new Date(bestDayEntry[0]+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"})})`, PINK) : statCard("—","Best day")}
+          </div>
+
+          {studyLog.length===0 && (
+            <div style={{textAlign:"center",padding:"2rem",color:"var(--color-text-tertiary)"}}>
+              <p style={{fontSize:15,marginBottom:8}}>No study data yet</p>
+              <p style={{fontSize:13}}>Complete a study session to see your stats</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ── CARDS VIEW ───────────────────────────────────────────────────────────
+    if (view==="cards") {
+      return (
+        <div style={{padding:"1.5rem",maxWidth:900,margin:"0 auto"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.5rem"}}>
+            <button onClick={()=>setView("home")} style={btnBase}>← Back</button>
+            <h2 style={{fontSize:18,fontWeight:700,color:"var(--color-text-primary)"}}>All cards</h2>
+            <button onClick={()=>setView("stats")} style={{...btnBase,background:"#FDE8F4",color:"#E91E8C",border:"0.5px solid #E91E8C",fontWeight:700}}>Stats</button>
+          </div>
+
+          {/* Section filter */}
+          <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+            {["All","Quant","Verbal","Data Insights"].map(s=>{
+              const a = filterSection===s;
+              return <button key={s} onClick={()=>setFilterSection(s)} style={{...(a?secFilterStyle[s].active:secFilterStyle[s].inactive),fontSize:13,padding:"5px 14px"}}>{s}</button>;
+            })}
+          </div>
+
+          {/* Deck filter */}
+          {decks.length>0 && (
+            <div style={{display:"flex",gap:8,marginBottom:"1rem",flexWrap:"wrap"}}>
+              <button onClick={()=>setFilterDeck("All")} style={{...filterDeck==="All"?btnDark:btnBase,fontSize:13,padding:"5px 14px"}}>All decks</button>
+              {decks.map(d=>(
+                <button key={d.id} onClick={()=>setFilterDeck(String(d.id))} style={{...filterDeck===String(d.id)?btnDark:btnBase,fontSize:13,padding:"5px 14px"}}>{d.name}</button>
+              ))}
+            </div>
+          )}
+
+          <p style={{fontSize:13,color:"var(--color-text-tertiary)",marginBottom:"1rem"}}>
+            {filteredCards.length} card{filteredCards.length!==1?"s":""}{filterSection!=="All"||filterDeck!=="All"?" (filtered)":""}
+          </p>
+
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {filteredCards.map(card=>{
+              const isCorrect = correctPile.some(c=>c.id===card.id);
+              const isWrong   = wrongPile.some(c=>c.id===card.id);
+              const c         = SECTION_COLORS[card.section]||SECTION_COLORS.Unknown;
+              const cardDecks = decks.filter(d=>(card.deckIds||[]).includes(d.id));
+              const conf      = card.confidence ? CONF_STYLE[card.confidence] : null;
+              const hasStats  = (card.stats?.right||0)+(card.stats?.wrong||0)>0;
+              return (
+                <div key={card.id} style={{background:"var(--color-background-primary)",border:`0.5px solid ${c.border}`,borderLeft:`4px solid ${c.accent}`,borderRadius:10,padding:"12px 16px"}}>
+                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <p style={{fontSize:14,margin:"0 0 6px",color:"var(--color-text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{card.question}</p>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:6,alignItems:"center"}}>
+                        <Badge section={card.section} />
+                        {conf && <span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:conf.bg,color:conf.color,border:`0.5px solid ${conf.border}`,fontWeight:500}}>{conf.label}</span>}
+                        {hasStats && <span style={{fontSize:11,color:"var(--color-text-tertiary)"}}>{card.stats.right}✓ {card.stats.wrong}✗</span>}
+                        {cardDecks.map(d=>(
+                          <span key={d.id} style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"var(--color-background-secondary)",color:"var(--color-text-secondary)",border:"0.5px solid var(--color-border-secondary)"}}>{d.name}</span>
+                        ))}
+                        {card.notes && <span title={card.notes} style={{fontSize:11,color:"var(--color-text-tertiary)",fontStyle:"italic"}}>note</span>}
+                      </div>
+                    </div>
+                    <div style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                      {isCorrect && <span style={{fontSize:13,color:"#3B6D11"}}>✓</span>}
+                      {isWrong   && <span style={{fontSize:13,color:"#A32D2D"}}>✗</span>}
+                      <button onClick={()=>deleteCard(card.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"var(--color-text-tertiary)",padding:"2px 5px",lineHeight:1}}>✕</button>
+                      <button onClick={()=>openEdit(card)}      style={{background:"none",border:"0.5px solid var(--color-border-secondary)",cursor:"pointer",fontSize:11,color:"var(--color-text-secondary)",padding:"2px 8px",borderRadius:4,lineHeight:1.4}}>Edit</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // ── HOME VIEW ────────────────────────────────────────────────────────────
+    const sidebarBtn = { ...btnBase, width:"100%", textAlign:"left", padding:"8px 12px", fontSize:13, marginBottom:6, justifyContent:"flex-start" };
+
+    return (
+      <div className="home-layout">
+
+        {/* ── DECK MODAL ── */}
+        {deckModal && (
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+            <div style={{background:"var(--color-background-primary)",borderRadius:"16px 16px 0 0",padding:"1.5rem",width:"100%",maxWidth:500,border:"0.5px solid var(--color-border-secondary)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem"}}>
+                <h3 style={{fontSize:16,fontWeight:500}}>Manage decks</h3>
+                <button onClick={()=>{setDeckModal(false);setNewDeckName("");}} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"var(--color-text-secondary)"}}>✕</button>
+              </div>
+              <div style={{display:"flex",gap:8,marginBottom:"1rem"}}>
+                <input style={{...inputStyle,marginBottom:0,flex:1}} placeholder="New deck name…" value={newDeckName}
+                  onChange={e=>setNewDeckName(e.target.value)}
+                  onKeyDown={e=>{if(e.key==="Enter") createDeck();}} />
+                <button onClick={createDeck} style={{...btnBlue,padding:"8px 16px"}}>Create</button>
+              </div>
+              {decks.length===0 && <p style={{fontSize:13,color:"var(--color-text-tertiary)",textAlign:"center",padding:"1rem 0"}}>No decks yet — create one above</p>}
+              <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:260,overflowY:"auto"}}>
+                {decks.map(d=>(
+                  <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"var(--color-background-secondary)",borderRadius:8,border:"0.5px solid var(--color-border-secondary)"}}>
+                    <span style={{fontSize:14,fontWeight:500}}>{d.name}</span>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{fontSize:12,color:"var(--color-text-tertiary)"}}>{cards.filter(c=>(c.deckIds||[]).includes(d.id)).length} cards</span>
+                      <button onClick={()=>deleteDeck(d.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#A32D2D",fontSize:16,padding:"2px 4px"}}>✕</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── SIDEBAR ── */}
+        <div className="sidebar">
+
+          {/* Title */}
+          <div className="sidebar-section">
+            <button onClick={()=>setView("menu")} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"var(--color-text-tertiary)",padding:0,marginBottom:8,textDecoration:"underline"}}>← Menu</button>
+            <h2 style={{fontSize:16,fontWeight:700,margin:"0 0 2px",color:"var(--color-text-primary)"}}>GMAT Flashcards</h2>
+            <p style={{fontSize:12,color:"var(--color-text-tertiary)",margin:0}}>{cards.length} card{cards.length!==1?"s":""}</p>
+          </div>
+
+          <hr className="sidebar-divider" />
+
+          {/* Section counts */}
+          {cards.length>0 && (
+            <div className="sidebar-section">
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:"#E6EEF8",borderRadius:8,border:"0.5px solid #0A2A5E"}}>
+                  <span style={{fontSize:12,fontWeight:600,color:"#0A2A5E"}}>Quant</span>
+                  <span style={{fontSize:16,fontWeight:700,color:"#0A2A5E"}}>{quantCount}</span>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:"#F3E8FF",borderRadius:8,border:"0.5px solid #7C3AED"}}>
+                  <span style={{fontSize:12,fontWeight:600,color:"#5B21B6"}}>Verbal</span>
+                  <span style={{fontSize:16,fontWeight:700,color:"#5B21B6"}}>{verbalCount}</span>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:"#E6F4EC",borderRadius:8,border:"0.5px solid #166534"}}>
+                  <span style={{fontSize:12,fontWeight:600,color:"#14532D"}}>Data Insights</span>
+                  <span style={{fontSize:16,fontWeight:700,color:"#14532D"}}>{dataCount}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <hr className="sidebar-divider" />
+
+          {/* Add + Decks */}
+          <div className="sidebar-section">
+            <div className="sidebar-label">Add cards</div>
+            <button onClick={()=>setView("add-manual")} style={{...sidebarBtn,background:"#E6EEF8",color:"#0A2A5E",border:"0.5px solid #0A2A5E"}}>+ Manual</button>
+            <button onClick={()=>setView("add-chat")}   style={{...sidebarBtn,background:"#F3E8FF",color:"#5B21B6",border:"0.5px solid #7C3AED"}}>+ From chat</button>
+            <button onClick={()=>setView("add-file")}   style={{...sidebarBtn,background:"#E6F4EC",color:"#14532D",border:"0.5px solid #166534"}}>+ Upload file</button>
+            <button onClick={()=>setDeckModal(true)}    style={{...sidebarBtn,marginTop:4}}>Manage decks</button>
+          </div>
+
+          <hr className="sidebar-divider" />
+
+          {/* Export / Import */}
+          <div className="sidebar-section">
+            <div className="sidebar-label">Data</div>
+            <button onClick={exportData} style={{...sidebarBtn}}>Export backup</button>
+            <button onClick={()=>importRef.current.click()} style={{...sidebarBtn}}>Import backup</button>
+            <input ref={importRef} type="file" accept=".json" style={{display:"none"}} onChange={importData} />
+          </div>
+
+        </div>
+
+        {/* ── MAIN PANEL ── */}
+        <div className="main-panel">
+          {/* Overview */}
+          <div style={{maxWidth:560}}>
+            <h1 style={{fontSize:28,fontWeight:700,marginBottom:6,color:"var(--color-text-primary)"}}>GMAT Flashcards</h1>
+            <p style={{fontSize:15,color:"var(--color-text-secondary)",marginBottom:"2rem"}}>
+              {cards.length===0 ? "Add your first card using the sidebar." : `${cards.length} card${cards.length!==1?"s":""} in your deck.`}
+            </p>
+
+            {/* Section count boxes */}
+            {cards.length>0 && (
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:"2rem"}}>
+                <div style={{background:"#E6EEF8",borderRadius:12,padding:"1.25rem",border:"0.5px solid #0A2A5E"}}>
+                  <p style={{fontSize:12,color:"#0A2A5E",margin:"0 0 6px",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em"}}>Quant</p>
+                  <p style={{fontSize:32,fontWeight:700,color:"#0A2A5E",margin:0}}>{quantCount}</p>
+                </div>
+                <div style={{background:"#F3E8FF",borderRadius:12,padding:"1.25rem",border:"0.5px solid #7C3AED"}}>
+                  <p style={{fontSize:12,color:"#7C3AED",margin:"0 0 6px",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em"}}>Verbal</p>
+                  <p style={{fontSize:32,fontWeight:700,color:"#5B21B6",margin:0}}>{verbalCount}</p>
+                </div>
+                <div style={{background:"#E6F4EC",borderRadius:12,padding:"1.25rem",border:"0.5px solid #166534"}}>
+                  <p style={{fontSize:12,color:"#166534",margin:"0 0 6px",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em"}}>Data</p>
+                  <p style={{fontSize:32,fontWeight:700,color:"#14532D",margin:0}}>{dataCount}</p>
+                </div>
+              </div>
+            )}
+
+            {/* View cards button */}
+            {cards.length>0 && (
+              <button onClick={()=>setView("cards")} style={{...btnDark,fontSize:15,padding:"12px 28px"}}>
+                View all cards ({cards.length}) →
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
